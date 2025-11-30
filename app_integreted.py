@@ -52,22 +52,65 @@ try:
 except ImportError:
     TWILIO_AVAILABLE = False
 
-# Environment configuration
+# Environment configuration - Smart detection for Streamlit Cloud vs Local
 from dotenv import load_dotenv
-load_dotenv()
+
+# Try to use Streamlit secrets if deployed, otherwise use .env file
+try:
+    # Check if running on Streamlit Cloud
+    if hasattr(st, 'secrets') and len(st.secrets) > 0:
+        # Running on Streamlit Cloud - use secrets
+        os.environ.update({k: str(v) for k, v in st.secrets.items()})
+    else:
+        # Running locally - use .env file
+        load_dotenv()
+except Exception:
+    # Fallback to .env if anything fails
+    load_dotenv()
 
 # ============================================================================
 # CONFIGURATION & CONSTANTS
 # ============================================================================
 
-# Database configuration with validation
-DB_CONFIG = {
-    'host': os.getenv('DB_HOST', 'localhost'),
-    'port': int(os.getenv('DB_PORT', '5432')),
-    'database': os.getenv('DB_NAME', 'seasure_db'),
-    'user': os.getenv('DB_USER', 'postgres'),
-    'password': os.getenv('DB_PASSWORD', 'Abzu#2005')
-}
+# Determine environment (local or production)
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'local').lower()
+
+# Database configuration with intelligent environment switching
+if ENVIRONMENT == 'production':
+    # Use Supabase database for production/deployment
+    DB_CONFIG = {
+        'host': os.getenv('SUPABASE_DB_HOST', os.getenv('DB_HOST', 'localhost')),
+        'port': int(os.getenv('SUPABASE_DB_PORT', os.getenv('DB_PORT', '5432'))),
+        'database': os.getenv('SUPABASE_DB_NAME', os.getenv('DB_NAME', 'postgres')),
+        'user': os.getenv('SUPABASE_DB_USER', os.getenv('DB_USER', 'postgres')),
+        'password': os.getenv('SUPABASE_DB_PASSWORD', os.getenv('DB_PASSWORD', ''))
+    }
+    DATABASE_URL = os.getenv('SUPABASE_DATABASE_URL', os.getenv('DATABASE_URL'))
+    logger.info(f"🌊 Using PRODUCTION database: {DB_CONFIG['host']}:{DB_CONFIG['port']}")
+else:
+    # Use local database for development
+    DB_CONFIG = {
+        'host': os.getenv('LOCAL_DB_HOST', os.getenv('DB_HOST', 'localhost')),
+        'port': int(os.getenv('LOCAL_DB_PORT', os.getenv('DB_PORT', '5433'))),
+        'database': os.getenv('LOCAL_DB_NAME', os.getenv('DB_NAME', 'seasure_db')),
+        'user': os.getenv('LOCAL_DB_USER', os.getenv('DB_USER', 'postgres')),
+        'password': os.getenv('LOCAL_DB_PASSWORD', os.getenv('DB_PASSWORD', 'Abzu#2005'))
+    }
+    DATABASE_URL = os.getenv('LOCAL_DATABASE_URL', os.getenv('DATABASE_URL'))
+    logger.info(f"🚀 Using LOCAL database: {DB_CONFIG['host']}:{DB_CONFIG['port']}")
+
+# Fallback to generic DB_* variables if specific ones aren't set
+# This ensures backward compatibility with existing .env configurations
+if not DB_CONFIG['host'] or DB_CONFIG['host'] == 'localhost' and ENVIRONMENT == 'production':
+    DB_CONFIG = {
+        'host': os.getenv('DB_HOST', 'localhost'),
+        'port': int(os.getenv('DB_PORT', '5432')),
+        'database': os.getenv('DB_NAME', 'seasure_db'),
+        'user': os.getenv('DB_USER', 'postgres'),
+        'password': os.getenv('DB_PASSWORD', '')
+    }
+    DATABASE_URL = os.getenv('DATABASE_URL')
+    logger.info(f"⚙️ Using GENERIC database config: {DB_CONFIG['host']}:{DB_CONFIG['port']}")
 
 # Environment variables with defaults
 QR_STORAGE_PATH = os.getenv('QR_STORAGE_PATH', 'storage/qr/')
