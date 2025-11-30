@@ -1,0 +1,9 @@
+@echo off
+echo Starting SEA_SURE Demo Application...
+echo.
+echo Checking system requirements...
+python check_system.py
+echo.
+echo Launching Streamlit App...
+streamlit run app_integreted.py
+pause

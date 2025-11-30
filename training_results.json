@@ -1,0 +1,42 @@
+{
+  "training_completed": true,
+  "model_path": "best_fish_model.pt",
+  "species_encoder_path": "species_encoder.pkl",
+  "freshness_encoder_path": "freshness_encoder.pkl",
+  "metrics": {
+    "species_accuracy": 0.996202050892518,
+    "freshness_accuracy": 1.0,
+    "species_f1": 0.9962726837594913,
+    "freshness_f1": 1.0
+  },
+  "species_classes": [
+    "Anchovy",
+    "Barramundi",
+    "Black Snapper",
+    "Catfish",
+    "Indian Carp",
+    "Indian Mackerel",
+    "Jelabi Kenda",
+    "Mixed_Species",
+    "Oil Sardine",
+    "Pink Perch",
+    "Pomfret",
+    "Prawn",
+    "Ribbon Fish",
+    "Rohu",
+    "Seer Fish",
+    "Snakehead",
+    "Trevally",
+    "White Grouper"
+  ],
+  "freshness_classes": [
+    "Fresh",
+    "Non-Fresh"
+  ],
+  "total_samples": 13162,
+  "dataset_paths": {
+    "fish_market": "E:\\sea\\datasets\\fish_market",
+    "freshness": "E:\\sea\\datasets\\fresh and non-fresh fish",
+    "rohu": "E:\\sea\\datasets\\Rohu"
+  }
+}

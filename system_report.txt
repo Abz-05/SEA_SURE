@@ -1,0 +1,31 @@
+=== System Check ===
+
+--- Checking Critical Files ---
+[OK] File: app_integreted.py
+[OK] File: combined_inference.py
+[OK] File: best_fish_model.pt
+[OK] File: fish_freshness_model.pkl
+[OK] File: species_encoder.pkl
+[OK] File: freshness_encoder.pkl
+[OK] File: tabular_label_encoders.pkl
+[OK] File: schema.sql
+[OK] File: .env
+
+--- Checking Python Dependencies ---
+[OK] Module: streamlit
+[OK] Module: pandas
+[OK] Module: numpy
+[OK] Module: PIL
+[OK] Module: plotly
+[OK] Module: psycopg2
+[MISSING] Module: torch (No module named 'torch')
+[MISSING] Module: torchvision (No module named 'torchvision')
+[OK] Module: xgboost
+[MISSING] Module: cv2 (numpy.core.multiarray failed to import)
+[OK] Module: dotenv
+[OK] Module: qrcode
+[OK] Module: twilio
+
+[SKIP] Skipping model loading check due to missing files or modules.
+
+=== Check Complete ===

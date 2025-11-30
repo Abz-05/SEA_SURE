@@ -1,0 +1,19 @@
+{
+  "training_completed": true,
+  "model_path": "fish_freshness_model.pkl",
+  "xgboost_metrics": {
+    "rmse": 0.4783274703945516,
+    "mae": 0.39301489418709185,
+    "r2": 0.8034877349318912,
+    "mse": 0.2287971689340506
+  },
+  "random_forest_metrics": {
+    "rmse": 0.4784456906321915,
+    "mae": 0.3919364461812821,
+    "r2": 0.8033905855979593,
+    "mse": 0.2289102788845147
+  },
+  "feature_count": 12,
+  "training_samples": 50000,
+  "best_model": "XGBoost"
+}
