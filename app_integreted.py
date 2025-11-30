@@ -86,7 +86,6 @@ if ENVIRONMENT == 'production':
         'password': os.getenv('SUPABASE_DB_PASSWORD', os.getenv('DB_PASSWORD', ''))
     }
     DATABASE_URL = os.getenv('SUPABASE_DATABASE_URL', os.getenv('DATABASE_URL'))
-    logger.info(f"🌊 Using PRODUCTION database: {DB_CONFIG['host']}:{DB_CONFIG['port']}")
 else:
     # Use local database for development
     DB_CONFIG = {
@@ -97,7 +96,6 @@ else:
         'password': os.getenv('LOCAL_DB_PASSWORD', os.getenv('DB_PASSWORD', 'Abzu#2005'))
     }
     DATABASE_URL = os.getenv('LOCAL_DATABASE_URL', os.getenv('DATABASE_URL'))
-    logger.info(f"🚀 Using LOCAL database: {DB_CONFIG['host']}:{DB_CONFIG['port']}")
 
 # Fallback to generic DB_* variables if specific ones aren't set
 # This ensures backward compatibility with existing .env configurations
@@ -110,7 +108,6 @@ if not DB_CONFIG['host'] or DB_CONFIG['host'] == 'localhost' and ENVIRONMENT == 
         'password': os.getenv('DB_PASSWORD', '')
     }
     DATABASE_URL = os.getenv('DATABASE_URL')
-    logger.info(f"⚙️ Using GENERIC database config: {DB_CONFIG['host']}:{DB_CONFIG['port']}")
 
 # Environment variables with defaults
 QR_STORAGE_PATH = os.getenv('QR_STORAGE_PATH', 'storage/qr/')
