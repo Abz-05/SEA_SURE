@@ -2623,7 +2623,7 @@ def show_browse_fish_page(buyer_name: str, user_id: int):
                     key=f"qty_{catch['catch_id']}"
                 )
                 
-                total_price = quantity * catch['price_per_kg']
+                total_price = quantity * float(catch['price_per_kg'])
                 st.write(f"**Total:** ₹{total_price:.2f}")
                 
                 if st.button("🛒 Buy Now", key=f"buy_{catch['catch_id']}", type="primary", use_container_width=True):
