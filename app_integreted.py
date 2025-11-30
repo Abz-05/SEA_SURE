@@ -2114,9 +2114,10 @@ def show_my_catches_page(fisher_name: str):
             col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
             
             with col1:
-                if catch.get('image_path') and os.path.exists(catch['image_path']):
+                image_path = catch.get('image_path')
+                if image_path and isinstance(image_path, str) and os.path.exists(image_path):
                     try:
-                        img = Image.open(catch['image_path'])
+                        img = Image.open(image_path)
                         st.image(img, width=150)
                     except:
                         st.write("🐟")
@@ -2575,9 +2576,10 @@ def show_browse_fish_page(buyer_name: str, user_id: int):
             col1, col2, col3, col4 = st.columns([2, 2, 2, 2])
             
             with col1:
-                if catch.get('image_path') and os.path.exists(catch['image_path']):
+                image_path = catch.get('image_path')
+                if image_path and isinstance(image_path, str) and os.path.exists(image_path):
                     try:
-                        img = Image.open(catch['image_path'])
+                        img = Image.open(image_path)
                         st.image(img, width=180)
                     except:
                         st.markdown("### 🐟")
