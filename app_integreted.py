@@ -1502,9 +1502,15 @@ def create_fisher_map(fisher_name: str, catches_df: pd.DataFrame):
             # Default location
             fisher_catches = pd.DataFrame([{
                 'latitude': 13.0827, 'longitude': 80.2707,
-                'species': 'No catches yet', 'current_freshness_days': 0,
-                'price_per_kg': 0, 'weight_g': 0
-        }])
+                'species': 'No catches yet', 'current_freshness_days': 0.0,
+                'price_per_kg': 0.0, 'weight_g': 0.0
+            }])
+        
+        # Convert Decimal columns to float for pydeck compatibility
+        numeric_cols = ['latitude', 'longitude', 'current_freshness_days', 'price_per_kg', 'weight_g']
+        for col in numeric_cols:
+            if col in fisher_catches.columns:
+                fisher_catches[col] = fisher_catches[col].astype(float)
     
         # Color coding based on freshness
         fisher_catches['color'] = fisher_catches['current_freshness_days'].apply(
@@ -1519,16 +1525,16 @@ def create_fisher_map(fisher_name: str, catches_df: pd.DataFrame):
         # Create layer
         scatterplot_layer = pdk.Layer(
             'ScatterplotLayer',
-        data=fisher_catches,
-        get_position='[longitude, latitude]',
-        get_color='color',
-        get_radius='size',
-        radius_scale=100,
-        radius_min_pixels=5,
-        radius_max_pixels=50,
-        pickable=True,
-        auto_highlight=True,
-    )
+            data=fisher_catches,
+            get_position='[longitude, latitude]',
+            get_color='color',
+            get_radius='size',
+            radius_scale=100,
+            radius_min_pixels=5,
+            radius_max_pixels=50,
+            pickable=True,
+            auto_highlight=True,
+        )
     
         # Calculate center
         center_lat = fisher_catches['latitude'].mean()
@@ -1536,19 +1542,19 @@ def create_fisher_map(fisher_name: str, catches_df: pd.DataFrame):
     
         # Create deck
         deck = pdk.Deck(
-        map_style='mapbox://styles/mapbox/light-v9',
-        initial_view_state=pdk.ViewState(
-            latitude=center_lat,
-            longitude=center_lon,
-            zoom=10,
-            pitch=50,
-        ),
-        layers=[scatterplot_layer],
-        tooltip={
-            'html': '<b>{species}</b><br/>Freshness: {current_freshness_days} days<br/>Price: ₹{price_per_kg}/kg',
-            'style': {'backgroundColor': 'steelblue', 'color': 'white'}
-        }
-    )
+            map_style='mapbox://styles/mapbox/light-v9',
+            initial_view_state=pdk.ViewState(
+                latitude=center_lat,
+                longitude=center_lon,
+                zoom=10,
+                pitch=50,
+            ),
+            layers=[scatterplot_layer],
+            tooltip={
+                'html': '<b>{species}</b><br/>Freshness: {current_freshness_days} days<br/>Price: ₹{price_per_kg}/kg',
+                'style': {'backgroundColor': 'steelblue', 'color': 'white'}
+            }
+        )
     
         return deck
     
