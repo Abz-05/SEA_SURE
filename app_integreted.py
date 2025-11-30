@@ -2617,7 +2617,8 @@ def show_browse_fish_page(buyer_name: str, user_id: int):
                 quantity = st.number_input(
                     "Quantity (kg)",
                     min_value=0.1,
-                    max_value=catch['weight_g']/1000,
+                    max_value=float(catch['weight_g'])/1000.0,
+                    value=0.1,
                     step=0.1,
                     key=f"qty_{catch['catch_id']}"
                 )
