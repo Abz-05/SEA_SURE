@@ -52,62 +52,22 @@ try:
 except ImportError:
     TWILIO_AVAILABLE = False
 
-# Environment configuration - Smart detection for Streamlit Cloud vs Local
+# Environment configuration
 from dotenv import load_dotenv
-
-# Try to use Streamlit secrets if deployed, otherwise use .env file
-try:
-    # Check if running on Streamlit Cloud
-    if hasattr(st, 'secrets') and len(st.secrets) > 0:
-        # Running on Streamlit Cloud - use secrets
-        os.environ.update({k: str(v) for k, v in st.secrets.items()})
-    else:
-        # Running locally - use .env file
-        load_dotenv()
-except Exception:
-    # Fallback to .env if anything fails
-    load_dotenv()
+load_dotenv()
 
 # ============================================================================
 # CONFIGURATION & CONSTANTS
 # ============================================================================
 
-# Determine environment (local or production)
-ENVIRONMENT = os.getenv('ENVIRONMENT', 'local').lower()
-
-# Database configuration with intelligent environment switching
-if ENVIRONMENT == 'production':
-    # Use Supabase database for production/deployment
-    DB_CONFIG = {
-        'host': os.getenv('SUPABASE_DB_HOST', os.getenv('DB_HOST', 'localhost')),
-        'port': int(os.getenv('SUPABASE_DB_PORT', os.getenv('DB_PORT', '5432'))),
-        'database': os.getenv('SUPABASE_DB_NAME', os.getenv('DB_NAME', 'postgres')),
-        'user': os.getenv('SUPABASE_DB_USER', os.getenv('DB_USER', 'postgres')),
-        'password': os.getenv('SUPABASE_DB_PASSWORD', os.getenv('DB_PASSWORD', ''))
-    }
-    DATABASE_URL = os.getenv('SUPABASE_DATABASE_URL', os.getenv('DATABASE_URL'))
-else:
-    # Use local database for development
-    DB_CONFIG = {
-        'host': os.getenv('LOCAL_DB_HOST', os.getenv('DB_HOST', 'localhost')),
-        'port': int(os.getenv('LOCAL_DB_PORT', os.getenv('DB_PORT', '5433'))),
-        'database': os.getenv('LOCAL_DB_NAME', os.getenv('DB_NAME', 'seasure_db')),
-        'user': os.getenv('LOCAL_DB_USER', os.getenv('DB_USER', 'postgres')),
-        'password': os.getenv('LOCAL_DB_PASSWORD', os.getenv('DB_PASSWORD', 'Abzu#2005'))
-    }
-    DATABASE_URL = os.getenv('LOCAL_DATABASE_URL', os.getenv('DATABASE_URL'))
-
-# Fallback to generic DB_* variables if specific ones aren't set
-# This ensures backward compatibility with existing .env configurations
-if not DB_CONFIG['host'] or DB_CONFIG['host'] == 'localhost' and ENVIRONMENT == 'production':
-    DB_CONFIG = {
-        'host': os.getenv('DB_HOST', 'localhost'),
-        'port': int(os.getenv('DB_PORT', '5432')),
-        'database': os.getenv('DB_NAME', 'seasure_db'),
-        'user': os.getenv('DB_USER', 'postgres'),
-        'password': os.getenv('DB_PASSWORD', '')
-    }
-    DATABASE_URL = os.getenv('DATABASE_URL')
+# Database configuration with validation
+DB_CONFIG = {
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'port': int(os.getenv('DB_PORT', '5432')),
+    'database': os.getenv('DB_NAME', 'seasure_db'),
+    'user': os.getenv('DB_USER', 'postgres'),
+    'password': os.getenv('DB_PASSWORD', 'Abzu#2005')
+}
 
 # Environment variables with defaults
 QR_STORAGE_PATH = os.getenv('QR_STORAGE_PATH', 'storage/qr/')
@@ -1502,15 +1462,9 @@ def create_fisher_map(fisher_name: str, catches_df: pd.DataFrame):
             # Default location
             fisher_catches = pd.DataFrame([{
                 'latitude': 13.0827, 'longitude': 80.2707,
-                'species': 'No catches yet', 'current_freshness_days': 0.0,
-                'price_per_kg': 0.0, 'weight_g': 0.0
-            }])
-        
-        # Convert Decimal columns to float for pydeck compatibility
-        numeric_cols = ['latitude', 'longitude', 'current_freshness_days', 'price_per_kg', 'weight_g']
-        for col in numeric_cols:
-            if col in fisher_catches.columns:
-                fisher_catches[col] = fisher_catches[col].astype(float)
+                'species': 'No catches yet', 'current_freshness_days': 0,
+                'price_per_kg': 0, 'weight_g': 0
+        }])
     
         # Color coding based on freshness
         fisher_catches['color'] = fisher_catches['current_freshness_days'].apply(
@@ -1525,16 +1479,16 @@ def create_fisher_map(fisher_name: str, catches_df: pd.DataFrame):
         # Create layer
         scatterplot_layer = pdk.Layer(
             'ScatterplotLayer',
-            data=fisher_catches,
-            get_position='[longitude, latitude]',
-            get_color='color',
-            get_radius='size',
-            radius_scale=100,
-            radius_min_pixels=5,
-            radius_max_pixels=50,
-            pickable=True,
-            auto_highlight=True,
-        )
+        data=fisher_catches,
+        get_position='[longitude, latitude]',
+        get_color='color',
+        get_radius='size',
+        radius_scale=100,
+        radius_min_pixels=5,
+        radius_max_pixels=50,
+        pickable=True,
+        auto_highlight=True,
+    )
     
         # Calculate center
         center_lat = fisher_catches['latitude'].mean()
@@ -1542,19 +1496,19 @@ def create_fisher_map(fisher_name: str, catches_df: pd.DataFrame):
     
         # Create deck
         deck = pdk.Deck(
-            map_style='mapbox://styles/mapbox/light-v9',
-            initial_view_state=pdk.ViewState(
-                latitude=center_lat,
-                longitude=center_lon,
-                zoom=10,
-                pitch=50,
-            ),
-            layers=[scatterplot_layer],
-            tooltip={
-                'html': '<b>{species}</b><br/>Freshness: {current_freshness_days} days<br/>Price: ₹{price_per_kg}/kg',
-                'style': {'backgroundColor': 'steelblue', 'color': 'white'}
-            }
-        )
+        map_style='mapbox://styles/mapbox/light-v9',
+        initial_view_state=pdk.ViewState(
+            latitude=center_lat,
+            longitude=center_lon,
+            zoom=10,
+            pitch=50,
+        ),
+        layers=[scatterplot_layer],
+        tooltip={
+            'html': '<b>{species}</b><br/>Freshness: {current_freshness_days} days<br/>Price: ₹{price_per_kg}/kg',
+            'style': {'backgroundColor': 'steelblue', 'color': 'white'}
+        }
+    )
     
         return deck
     
@@ -2114,10 +2068,9 @@ def show_my_catches_page(fisher_name: str):
             col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
             
             with col1:
-                image_path = catch.get('image_path')
-                if image_path and isinstance(image_path, str) and os.path.exists(image_path):
+                if catch.get('image_path') and os.path.exists(catch['image_path']):
                     try:
-                        img = Image.open(image_path)
+                        img = Image.open(catch['image_path'])
                         st.image(img, width=150)
                     except:
                         st.write("🐟")
@@ -2576,10 +2529,9 @@ def show_browse_fish_page(buyer_name: str, user_id: int):
             col1, col2, col3, col4 = st.columns([2, 2, 2, 2])
             
             with col1:
-                image_path = catch.get('image_path')
-                if image_path and isinstance(image_path, str) and os.path.exists(image_path):
+                if catch.get('image_path') and os.path.exists(catch['image_path']):
                     try:
-                        img = Image.open(image_path)
+                        img = Image.open(catch['image_path'])
                         st.image(img, width=180)
                     except:
                         st.markdown("### 🐟")
@@ -2619,13 +2571,12 @@ def show_browse_fish_page(buyer_name: str, user_id: int):
                 quantity = st.number_input(
                     "Quantity (kg)",
                     min_value=0.1,
-                    max_value=float(catch['weight_g'])/1000.0,
-                    value=0.1,
+                    max_value=catch['weight_g']/1000,
                     step=0.1,
                     key=f"qty_{catch['catch_id']}"
                 )
                 
-                total_price = quantity * float(catch['price_per_kg'])
+                total_price = quantity * catch['price_per_kg']
                 st.write(f"**Total:** ₹{total_price:.2f}")
                 
                 if st.button("🛒 Buy Now", key=f"buy_{catch['catch_id']}", type="primary", use_container_width=True):
@@ -3473,12 +3424,6 @@ def main():
 
 if __name__ == "__main__":
     try:
-        # Set page title in browser tab
-        st.set_page_config(
-            page_title="SEA_SURE - Smart Fisheries",
-            page_icon="🐟"
-        )
-        
         # Log application start
         logger.info("=" * 80)
         logger.info("SEA_SURE Application Started")
