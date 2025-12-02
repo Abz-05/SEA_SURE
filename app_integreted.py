@@ -61,13 +61,26 @@ load_dotenv()
 # ============================================================================
 
 # Database configuration with validation
-DB_CONFIG = {
-    'host': os.getenv('DB_HOST', 'localhost'),
-    'port': int(os.getenv('DB_PORT', '5432')),
-    'database': os.getenv('DB_NAME', 'seasure_db'),
-    'user': os.getenv('DB_USER', 'postgres'),
-    'password': os.getenv('DB_PASSWORD', 'Abzu#2005')
-}
+# Database configuration with environment detection
+IS_PRODUCTION = os.getenv('ENVIRONMENT', 'production').lower() == 'production'
+
+if IS_PRODUCTION:
+    DB_CONFIG = {
+        'host': os.getenv('SUPABASE_DB_HOST', 'aws-1-ap-southeast-2.pooler.supabase.com'),
+        'port': int(os.getenv('SUPABASE_DB_PORT', '6543')),
+        'database': os.getenv('SUPABASE_DB_NAME', 'postgres'),
+        'user': os.getenv('SUPABASE_DB_USER', 'postgres.tashfkdhagnlhrfqepoy'),
+        'password': os.getenv('SUPABASE_DB_PASSWORD', 'Abzana#20052108'),
+        'sslmode': 'require'
+    }
+else:
+    DB_CONFIG = {
+        'host': os.getenv('DB_HOST', 'localhost'),
+        'port': int(os.getenv('DB_PORT', '5433')),
+        'database': os.getenv('DB_NAME', 'seasure_db'),
+        'user': os.getenv('DB_USER', 'postgres'),
+        'password': os.getenv('DB_PASSWORD', 'Abzu#2005')
+    }
 
 # Environment variables with defaults
 QR_STORAGE_PATH = os.getenv('QR_STORAGE_PATH', 'storage/qr/')
@@ -1456,7 +1469,12 @@ def create_fisher_map(fisher_name: str, catches_df: pd.DataFrame):
     if not MAPS_AVAILABLE:
         return None
     try:
-        fisher_catches = catches_df[catches_df['fisher_name'] == fisher_name].copy()
+        # Convert DataFrame to ensure proper types
+        fisher_catches = pd.DataFrame(catches_df).copy()
+        
+        # If already filtered, use as-is; otherwise filter
+        if 'fisher_name' in fisher_catches.columns and len(fisher_catches[fisher_catches['fisher_name'] == fisher_name]) > 0:
+            fisher_catches = fisher_catches[fisher_catches['fisher_name'] == fisher_name].copy()
     
         if len(fisher_catches) == 0:
             # Default location
@@ -2568,10 +2586,13 @@ def show_browse_fish_page(buyer_name: str, user_id: int):
             
             with col4:
                 st.markdown("#### 🛒 Purchase")
+                # Convert to float to ensure type consistency
+                max_weight_kg = float(catch['weight_g']) / 1000.0
                 quantity = st.number_input(
                     "Quantity (kg)",
                     min_value=0.1,
-                    max_value=catch['weight_g']/1000,
+                    max_value=max_weight_kg,
+                    value=0.5,  # Add default value
                     step=0.1,
                     key=f"qty_{catch['catch_id']}"
                 )
