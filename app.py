@@ -93,7 +93,7 @@ def show_login_page():
             login_phone = st.text_input("📱 Phone Number", placeholder="+919876543210", key="login_phone")
             login_password = st.text_input("🔒 Password", type="password", key="login_pass")
             
-            if st.button("🚀 Login", type="primary", use_container_width=True):
+            if st.button("🚀 Login", type="primary", width="stretch"):
                 if not login_phone or not login_password:
                     st.error("⚠️ Please enter phone number and password")
                 else:
@@ -125,7 +125,7 @@ def show_login_page():
                 }[x]
             )
             
-            if st.button("📝 Create Account", type="primary", use_container_width=True):
+            if st.button("📝 Create Account", type="primary", width="stretch"):
                 if not all([reg_name, reg_phone, reg_password, reg_password_confirm]):
                     st.error("⚠️ Please fill in all fields")
                 elif reg_password != reg_password_confirm:
@@ -178,7 +178,7 @@ def fisher_interface():
             uploaded_file = st.file_uploader("Upload fish photo", type=["jpg", "jpeg", "png"])
             if uploaded_file:
                 image = Image.open(uploaded_file)
-                st.image(image, use_container_width=True)
+                st.image(image, width="stretch")
                 
                 valid, msg = services['image'].validate(image)
                 if valid:

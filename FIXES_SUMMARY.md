@@ -34,5 +34,5 @@
 
 ### Fix 3: Replace Deprecated Parameters
 
-- Replace all `use_container_width=True` with `width="stretch"`
-- Replace all `use_container_width=False` with `width="content"`
+- Replace all `width="stretch"` with `width="stretch"`
+- Replace all `width="content"` with `width="content"`

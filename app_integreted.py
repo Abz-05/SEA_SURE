@@ -1013,6 +1013,19 @@ class GeoHelper:
         c = 2 * asin(sqrt(a))
         return 6371 * c  # Earth radius in km
     
+    def safe_float_multiply(val1, val2):
+        """Safely multiply two values, converting Decimal to float"""
+        try:
+            from decimal import Decimal
+            if isinstance(val1, Decimal):
+                val1 = float(val1)
+            if isinstance(val2, Decimal):
+                val2 = float(val2)
+            return float(val1) * float(val2)
+        except Exception as e:
+            logger.error(f"Float multiplication error: {e}")
+            return 0.0
+        
     @st.cache_data(ttl=86400)
     def get_city_name(_self, lat: float, lon: float) -> str:
         """Get city name from coordinates with caching"""
@@ -1410,7 +1423,22 @@ def get_all_catches() -> pd.DataFrame:
 def get_catches_with_dynamic_freshness() -> pd.DataFrame:
     """Get catches with real-time freshness calculation"""
     df = get_all_catches()
+    
+    # Ensure proper DataFrame
+    if not isinstance(df, pd.DataFrame):
+        logger.warning("get_all_catches did not return a DataFrame")
+        return pd.DataFrame()
+    
     if len(df) > 0:
+        # Convert numeric columns to proper types
+        numeric_columns = ['weight_g', 'price_per_kg', 'storage_temp', 
+                          'freshness_days', 'latitude', 'longitude', 
+                          'area_temperature', 'hours_since_catch']
+        
+        for col in numeric_columns:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+        
         for idx, row in df.iterrows():
             try:
                 catch_time = pd.to_datetime(row['created_at'])
@@ -1679,7 +1707,7 @@ def show_login_page():
             submitted = st.form_submit_button(
                 "🚀 Login",
                 type="primary",
-                use_container_width=True
+                width="stretch"
             )
         
         if submitted:
@@ -1742,7 +1770,7 @@ def show_login_page():
             submitted = st.form_submit_button(
                 "📝 Create Account",
                 type="primary",
-                use_container_width=True
+                width="stretch"
             )
         
         if submitted:
@@ -1867,7 +1895,7 @@ def show_add_catch_page(fisher_name: str, user_id: int):
             try:
                 image = Image.open(uploaded_file)
                 st.markdown('<div class="image-container">', unsafe_allow_html=True)
-                st.image(image, use_container_width=True)
+                st.image(image, width="stretch")
                 st.markdown('</div>', unsafe_allow_html=True)
                 
                 # Validate image
@@ -1946,7 +1974,7 @@ def show_add_catch_page(fisher_name: str, user_id: int):
     if uploaded_file and st.button(
         "🔬 Analyze Fish & Generate QR",
         type="primary",
-        use_container_width=True
+        width="stretch"
     ):
         with st.spinner("🔄 Analyzing fish quality..."):
             try:
@@ -2041,7 +2069,7 @@ def show_add_catch_page(fisher_name: str, user_id: int):
                                     base64.b64decode(qr_b64),
                                     f"qr_{catch_id}.png",
                                     "image/png",
-                                    use_container_width=True
+                                    width="stretch"
                                 )
                                 st.markdown('</div>', unsafe_allow_html=True)
                             
@@ -2375,14 +2403,26 @@ def show_map_view_page(fisher_name: str):
         st.warning("⚠️ Map visualization requires additional libraries")
     else:
         all_catches = get_catches_with_dynamic_freshness()
-        my_catches = all_catches[all_catches['fisher_name'] == fisher_name]
+        
+        # Ensure we have a proper DataFrame
+        if not isinstance(all_catches, pd.DataFrame) or len(all_catches) == 0:
+            st.info("🔭 No catches to display on map")
+            return
+        
+        my_catches = all_catches[all_catches['fisher_name'] == fisher_name].copy()
         
         if len(my_catches) > 0:
             # 3D Deck map
             st.markdown("### 🌍 3D Catch Distribution")
-            deck = create_fisher_map(fisher_name, my_catches)
-            if deck:
-                st.pydeck_chart(deck)
+            try:
+                deck = create_fisher_map(fisher_name, my_catches)
+                if deck:
+                    st.pydeck_chart(deck)
+                else:
+                    st.warning("Unable to generate map visualization")
+            except Exception as e:
+                logger.error(f"Map display error: {e}")
+                st.error("Map visualization unavailable")
             
             st.markdown("---")
             
@@ -2447,7 +2487,7 @@ def show_analytics_page(fisher_name: str):
                 hole=0.4,
                 color_discrete_sequence=px.colors.sequential.Blues_r
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         
         with col2:
             st.markdown("### 📊 Status Distribution")
@@ -2459,7 +2499,7 @@ def show_analytics_page(fisher_name: str):
                 color_continuous_scale='Viridis',
                 labels={'x': 'Status', 'y': 'Count'}
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         
         col1, col2 = st.columns(2)
         
@@ -2474,7 +2514,7 @@ def show_analytics_page(fisher_name: str):
                 markers=True,
                 color_discrete_sequence=['#667eea']
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         
         with col2:
             st.markdown("### 💰 Price by Species")
@@ -2487,7 +2527,7 @@ def show_analytics_page(fisher_name: str):
                 color_continuous_scale='RdYlGn',
                 labels={'x': 'Price (₹/kg)', 'y': 'Species'}
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
     else:
         st.info("🔭 No data available for analytics")
 
@@ -2634,24 +2674,27 @@ def show_browse_fish_page(buyer_name: str, user_id: int):
             
             with col4:
                 st.markdown("#### 🛒 Purchase")
-                # Convert to float to ensure type consistency
+                # Convert ALL numeric values to float
                 max_weight_kg = float(catch['weight_g']) / 1000.0
+                price_per_kg = float(catch['price_per_kg'])  # Convert Decimal to float
+    
                 quantity = st.number_input(
                     "Quantity (kg)",
                     min_value=0.1,
                     max_value=max_weight_kg,
-                    value=0.5,  # Add default value
+                    value=0.5,
                     step=0.1,
                     key=f"qty_{catch['catch_id']}"
                 )
-                
-                total_price = quantity * catch['price_per_kg']
+    
+                total_price = float(quantity) * price_per_kg  # Ensure both are float
                 st.write(f"**Total:** ₹{total_price:.2f}")
                 
-                if st.button("🛒 Buy Now", key=f"buy_{catch['catch_id']}", type="primary", use_container_width=True):
+                if st.button("🛒 Buy Now", key=f"buy_{catch['catch_id']}", type="primary", width="stretch"):
                     try:
                         order_id = str(uuid.uuid4())[:8].upper()
                         
+                        # Convert all values to native Python types
                         insert_query = """
                             INSERT INTO orders (order_id, catch_id, buyer_user_id, buyer_name,
                                               quantity_kg, total_price, status, created_at)
@@ -2659,8 +2702,8 @@ def show_browse_fish_page(buyer_name: str, user_id: int):
                         """
                         db_manager.execute_query(
                             insert_query,
-                            (order_id, catch['catch_id'], user_id, buyer_name,
-                             quantity, total_price, 'pending', datetime.now()),
+                            (order_id, str(catch['catch_id']), int(user_id), str(buyer_name),
+                             float(quantity), float(total_price), 'pending', datetime.now()),
                             commit=True
                         )
                         
@@ -2760,7 +2803,7 @@ def show_qr_verify_page():
             help="Scan QR code and paste JSON data here"
         )
         
-        if qr_input and st.button("🔍 Verify", type="primary", use_container_width=True):
+        if qr_input and st.button("🔍 Verify", type="primary", width="stretch"):
             try:
                 qr_data = json.loads(qr_input)
                 
@@ -3057,7 +3100,7 @@ def show_admin_analytics():
                     color_continuous_scale='Viridis',
                     labels={'x': 'Count', 'y': 'Species'}
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
             
             with col2:
                 st.markdown("### 📈 Daily Catch Trend")
@@ -3071,7 +3114,7 @@ def show_admin_analytics():
                     markers=True,
                     color_discrete_sequence=['#667eea']
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
         
     except Exception as e:
         st.error(f"Failed to load analytics: {e}")
@@ -3123,7 +3166,7 @@ def show_admin_users():
             display_df['created_at'] = pd.to_datetime(display_df['created_at']).dt.strftime('%Y-%m-%d')
             display_df['last_login'] = pd.to_datetime(display_df['last_login']).dt.strftime('%Y-%m-%d %H:%M')
             
-            st.dataframe(display_df, use_container_width=True, hide_index=True)
+            st.dataframe(display_df, width="stretch", hide_index=True)
             
             # Export button
             csv = users_df.to_csv(index=False)
@@ -3132,7 +3175,7 @@ def show_admin_users():
                 csv,
                 "users.csv",
                 "text/csv",
-                use_container_width=True
+                width="stretch"
             )
         else:
             st.info("🔭 No users registered yet")
@@ -3178,7 +3221,7 @@ def show_admin_catches():
         display_df = all_catches[display_cols].copy()
         display_df['created_at'] = pd.to_datetime(display_df['created_at']).dt.strftime('%Y-%m-%d %H:%M')
         
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        st.dataframe(display_df, width="stretch", hide_index=True)
         
         # Export button
         csv = all_catches.to_csv(index=False)
@@ -3187,7 +3230,7 @@ def show_admin_catches():
             csv,
             "catches.csv",
             "text/csv",
-            use_container_width=True
+            width="stretch"
         )
     else:
         st.info("🔭 No catches recorded yet")
@@ -3234,7 +3277,7 @@ def show_admin_orders():
             display_df = orders_df.copy()
             display_df['created_at'] = pd.to_datetime(display_df['created_at']).dt.strftime('%Y-%m-%d %H:%M')
             
-            st.dataframe(display_df, use_container_width=True, hide_index=True)
+            st.dataframe(display_df, width="stretch", hide_index=True)
             
             # Export button
             csv = orders_df.to_csv(index=False)
@@ -3243,7 +3286,7 @@ def show_admin_orders():
                 csv,
                 "orders.csv",
                 "text/csv",
-                use_container_width=True
+                width="stretch"
             )
         else:
             st.info("🔭 No orders placed yet")
@@ -3330,12 +3373,12 @@ def show_admin_system():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button("🔄 Clear Cache", use_container_width=True):
+        if st.button("🔄 Clear Cache", width="stretch"):
             st.cache_data.clear()
             st.success("✅ Cache cleared successfully!")
     
     with col2:
-        if st.button("🧹 Cleanup Old Data", use_container_width=True):
+        if st.button("🧹 Cleanup Old Data", width="stretch"):
             try:
                 # Clean old notifications
                 cleanup_query = """
@@ -3358,7 +3401,7 @@ def show_admin_system():
                 st.error(f"Cleanup failed: {e}")
     
     with col3:
-        if st.button("📊 Export All Data", use_container_width=True):
+        if st.button("📊 Export All Data", width="stretch"):
             try:
                 # Export all data as JSON
                 export_data = {
@@ -3376,7 +3419,7 @@ def show_admin_system():
                     json_data,
                     f"sea_sure_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
                     "application/json",
-                    use_container_width=True
+                    width="stretch"
                 )
             except Exception as e:
                 st.error(f"Export failed: {e}")
