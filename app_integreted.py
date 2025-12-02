@@ -1327,6 +1327,17 @@ def save_catch_to_db(catch_data: Dict[str, Any], qr_code_data: str,
 qr_path: Optional[str] = None, qr_signature: str = "") -> bool:
     """Save catch to database with comprehensive error handling"""
     try:
+        # Convert NumPy types to native Python types
+        def convert_to_native(value):
+            """Convert numpy types to native Python types"""
+            if value is None:
+                return None
+            if isinstance(value, (np.integer, np.floating)):
+                return float(value) if isinstance(value, np.floating) else int(value)
+            if isinstance(value, np.ndarray):
+                return value.item()
+            return value
+        
         query = """
         INSERT INTO catches
         (catch_id, fisher_name, user_id, species, species_tamil,
@@ -1337,26 +1348,28 @@ qr_path: Optional[str] = None, qr_signature: str = "") -> bool:
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
         %s, %s, %s, %s, %s, %s, %s)
         """
+        
+        # Convert all parameters to native Python types
         params = (
-            catch_data["catch_id"],
-            catch_data["fisher_name"],
-            catch_data.get("user_id"),
-            catch_data["species"],
-            catch_data.get("species_tamil", "மீன்"),
-            catch_data.get("freshness_days", 2.0),
-            catch_data.get("freshness_category", "Good"),
-            catch_data["weight_g"],
-            catch_data.get("storage_temp", 5.0),
-            catch_data.get("hours_since_catch", 6.0),
-            catch_data.get("price_per_kg", 300),
-            catch_data.get("location", "Unknown"),
-            catch_data.get("latitude", 0.0),
-            catch_data.get("longitude", 0.0),
-            qr_code_data,
-            catch_data.get("area_temperature", 25.0),
-            qr_signature,
-            qr_path,
-            catch_data.get("image_path"),
+            str(catch_data["catch_id"]),
+            str(catch_data["fisher_name"]),
+            int(catch_data.get("user_id")) if catch_data.get("user_id") else None,
+            str(catch_data["species"]),
+            str(catch_data.get("species_tamil", "மீன்")),
+            float(convert_to_native(catch_data.get("freshness_days", 2.0))),
+            str(catch_data.get("freshness_category", "Good")),
+            int(convert_to_native(catch_data["weight_g"])),
+            float(convert_to_native(catch_data.get("storage_temp", 5.0))),
+            float(convert_to_native(catch_data.get("hours_since_catch", 6.0))),
+            int(convert_to_native(catch_data.get("price_per_kg", 300))),
+            str(catch_data.get("location", "Unknown")),
+            float(convert_to_native(catch_data.get("latitude", 0.0))),
+            float(convert_to_native(catch_data.get("longitude", 0.0))),
+            str(qr_code_data),
+            float(convert_to_native(catch_data.get("area_temperature", 25.0))),
+            str(qr_signature) if qr_signature else "",
+            str(qr_path) if qr_path else None,
+            str(catch_data.get("image_path")) if catch_data.get("image_path") else None,
             datetime.now(),
             'available'
         )
@@ -1367,6 +1380,8 @@ qr_path: Optional[str] = None, qr_signature: str = "") -> bool:
     
     except Exception as e:
         logger.error(f"Failed to save catch: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return False
 @st.cache_data(ttl=60)
 def get_all_catches() -> pd.DataFrame:
@@ -1469,69 +1484,102 @@ def create_fisher_map(fisher_name: str, catches_df: pd.DataFrame):
     if not MAPS_AVAILABLE:
         return None
     try:
-        # Convert DataFrame to ensure proper types
-        fisher_catches = pd.DataFrame(catches_df).copy()
+        # Ensure catches_df is a proper DataFrame
+        if not isinstance(catches_df, pd.DataFrame):
+            logger.error("catches_df is not a DataFrame")
+            return None
         
-        # If already filtered, use as-is; otherwise filter
-        if 'fisher_name' in fisher_catches.columns and len(fisher_catches[fisher_catches['fisher_name'] == fisher_name]) > 0:
-            fisher_catches = fisher_catches[fisher_catches['fisher_name'] == fisher_name].copy()
-    
+        # Create a copy and filter
+        fisher_catches = catches_df[catches_df['fisher_name'] == fisher_name].copy()
+        
         if len(fisher_catches) == 0:
             # Default location
             fisher_catches = pd.DataFrame([{
-                'latitude': 13.0827, 'longitude': 80.2707,
-                'species': 'No catches yet', 'current_freshness_days': 0,
-                'price_per_kg': 0, 'weight_g': 0
-        }])
-    
+                'latitude': 13.0827, 
+                'longitude': 80.2707,
+                'species': 'No catches yet', 
+                'current_freshness_days': 0.0,
+                'price_per_kg': 0.0, 
+                'weight_g': 0.0
+            }])
+        
+        # Convert to native types and ensure proper column types
+        fisher_catches['current_freshness_days'] = pd.to_numeric(
+            fisher_catches['current_freshness_days'], errors='coerce'
+        ).fillna(0.0)
+        
+        fisher_catches['price_per_kg'] = pd.to_numeric(
+            fisher_catches['price_per_kg'], errors='coerce'
+        ).fillna(0.0)
+        
+        fisher_catches['latitude'] = pd.to_numeric(
+            fisher_catches['latitude'], errors='coerce'
+        ).fillna(13.0827)
+        
+        fisher_catches['longitude'] = pd.to_numeric(
+            fisher_catches['longitude'], errors='coerce'
+        ).fillna(80.2707)
+        
         # Color coding based on freshness
-        fisher_catches['color'] = fisher_catches['current_freshness_days'].apply(
-            lambda x: [0, 255, 0, 160] if x >= 2.0 
-            else [255, 255, 0, 160] if x >= 1.0 
-            else [255, 0, 0, 160]
-        )
-    
+        def get_color(freshness):
+            try:
+                freshness = float(freshness)
+                if freshness >= 2.0:
+                    return [0, 255, 0, 160]
+                elif freshness >= 1.0:
+                    return [255, 255, 0, 160]
+                else:
+                    return [255, 0, 0, 160]
+            except:
+                return [128, 128, 128, 160]
+        
+        fisher_catches['color'] = fisher_catches['current_freshness_days'].apply(get_color)
+        
         # Size based on price
-        fisher_catches['size'] = fisher_catches['price_per_kg'] / 10
-    
+        fisher_catches['size'] = fisher_catches['price_per_kg'].apply(
+            lambda x: max(float(x) / 10.0, 5.0)
+        )
+        
         # Create layer
         scatterplot_layer = pdk.Layer(
             'ScatterplotLayer',
-        data=fisher_catches,
-        get_position='[longitude, latitude]',
-        get_color='color',
-        get_radius='size',
-        radius_scale=100,
-        radius_min_pixels=5,
-        radius_max_pixels=50,
-        pickable=True,
-        auto_highlight=True,
-    )
-    
+            data=fisher_catches.to_dict('records'),
+            get_position='[longitude, latitude]',
+            get_color='color',
+            get_radius='size',
+            radius_scale=100,
+            radius_min_pixels=5,
+            radius_max_pixels=50,
+            pickable=True,
+            auto_highlight=True,
+        )
+        
         # Calculate center
-        center_lat = fisher_catches['latitude'].mean()
-        center_lon = fisher_catches['longitude'].mean()
-    
+        center_lat = float(fisher_catches['latitude'].mean())
+        center_lon = float(fisher_catches['longitude'].mean())
+        
         # Create deck
         deck = pdk.Deck(
-        map_style='mapbox://styles/mapbox/light-v9',
-        initial_view_state=pdk.ViewState(
-            latitude=center_lat,
-            longitude=center_lon,
-            zoom=10,
-            pitch=50,
-        ),
-        layers=[scatterplot_layer],
-        tooltip={
-            'html': '<b>{species}</b><br/>Freshness: {current_freshness_days} days<br/>Price: ₹{price_per_kg}/kg',
-            'style': {'backgroundColor': 'steelblue', 'color': 'white'}
-        }
-    )
-    
+            map_style='mapbox://styles/mapbox/light-v9',
+            initial_view_state=pdk.ViewState(
+                latitude=center_lat,
+                longitude=center_lon,
+                zoom=10,
+                pitch=50,
+            ),
+            layers=[scatterplot_layer],
+            tooltip={
+                'html': '<b>{species}</b><br/>Freshness: {current_freshness_days} days<br/>Price: ₹{price_per_kg}/kg',
+                'style': {'backgroundColor': 'steelblue', 'color': 'white'}
+            }
+        )
+        
         return deck
     
     except Exception as e:
         logger.error(f"Error creating fisher map: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return None
 def create_buyer_map(catches_df: pd.DataFrame, species_filter: List[str] = None,
 min_freshness: float = 0) -> Optional[Any]:
